@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    restart: "on-failure"
+    ports:
+      - "443:443"
+      - "80:80"
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./nginx/nginx.conf.http_only:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./backend/static:/usr/src/backend/static:ro
+      - ./backend/media:/usr/src/backend/media:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    entrypoint: /usr/src/backend/entrypoint.sh
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: "on-failure"
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - 8000
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - minio
+
+  db:
+    image: postgres:16-bookworm
+    restart: "on-failure"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    ports:
+      - 5432:5432
+
+  worker:
+    build: ./backend
+    command: bash -c "celery -A backend worker -B --loglevel=info --concurrency $$CELERY_CONCURRENCY_COUNT"
+    restart: "on-failure"
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+    deploy:
+      mode: replicated
+      replicas: $WORKERS_COUNT
+
+  redis:
+    restart: "on-failure"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    image: redis:7.2.4-bookworm
+    ports:
+      - 6379:6379
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    volumes:
+      - minio_data:/data
+    expose:
+      - "9000"
+      - "9001"
+    env_file:
+      - .env
+    command: server /data --console-address ":9001"
+    restart: "on-failure"
+
+volumes:
+  postgres_data:
+  minio_data:

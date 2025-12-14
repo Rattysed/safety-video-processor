@@ -1,0 +1,10 @@
+*__pycache__
+
+backend/static
+backend/media
+
+backend/celerybeat-schedule
+
+.idea
+.env
+.env.prod
