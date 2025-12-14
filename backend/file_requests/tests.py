@@ -74,7 +74,7 @@ class ApiTests(APITestCase):
         self.client = Client()
         self.upload_url = reverse("api_upload")
         self.test_image = SimpleUploadedFile(
-            name="test.jpg", content=b"file_content", content_type="image/jpeg"
+            name="test.mp4", content=b"file_content", content_type="video/mp4"
         )
 
     @patch("file_requests.views.group")

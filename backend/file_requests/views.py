@@ -4,11 +4,12 @@ from django.shortcuts import render, get_object_or_404
 
 
 from .models import Request, UploadedFile, UploadedFile, EditedFile
-from tasks import task_image_edit, task_to_zip
+from tasks import task_process_video, task_to_zip
 from celery import chord, group
 
 from django.views.generic.edit import FormView
 from .forms import FileFieldForm
+from .common import *
 from django.core.files.storage import FileSystemStorage
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -65,7 +66,7 @@ class FileUploadAPIView(APIView):
         file_ids = []
 
         for file in files:
-            if file.name.endswith('.jpg') or file.name.endswith('.jpeg') or file.name.endswith('.png'):
+            if validate_file_extensions(ALLOWED_FILE_EXTENSIONS, file.name):
                 file_ids.append(UploadedFile.create_file(req, file.name, file).id)
             else:
                 continue
@@ -73,7 +74,7 @@ class FileUploadAPIView(APIView):
         if not file_ids:
             return Response({'error': 'No valid image files were uploaded'}, status=status.HTTP_400_BAD_REQUEST)
                 
-        tasks = group(task_image_edit.s(file_id) for file_id in file_ids)
+        tasks = group(task_process_video.s(file_id) for file_id in file_ids)
         chord(tasks)(task_to_zip.s())
         
         serializer = RequestSerializer(req)

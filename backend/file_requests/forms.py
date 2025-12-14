@@ -1,4 +1,6 @@
 from django import forms
+from .common import *
+
 
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
@@ -23,6 +25,6 @@ class FileFieldForm(forms.Form):
     def clean(self):
         files = self.files.getlist('file_field')
         for file in files:
-            if not file.name.endswith('.jpeg') and not file.name.endswith('.jpg') and not file.name.endswith('.png'):
+            if not validate_file_extensions(ALLOWED_FILE_EXTENSIONS, file.name):
                 raise forms.ValidationError(f"{file.name} не является .jpg или .png файлом.")
         return super().clean()

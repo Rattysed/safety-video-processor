@@ -10,20 +10,18 @@ from django.utils import timezone
 from backend.celery import app
 
 @app.task
-def task_image_edit(file_id):
+def task_process_video(file_id):
     try:
-        image = UploadedFile.get_by_id(file_id)
+        video = UploadedFile.get_by_id(file_id)
 
-        image_handler = ImageHandler()
+        # edited_image = image_handler.edit(image.get_file_data())
 
-        edited_image = image_handler.edit(image.get_file_data())
-
-        file = EditedFile.create_file(image.request, image.uploaded_name, edited_image)
-    except Exception:
+        file = EditedFile.create_file(video.request, video.uploaded_name, video.get_file_data())
+    except Exception as e:
+        print(e)
         return file_id, False
-    
     return file.id, True
-
+        
 
 @app.task
 def task_to_zip(file_ids):
