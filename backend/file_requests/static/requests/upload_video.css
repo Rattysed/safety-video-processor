@@ -1,0 +1,101 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.upload-area {
+    border: 2px dashed #ccc;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.upload-area:hover {
+    border-color: #666;
+}
+
+.upload-area.highlight {
+    border-color: #f32121;
+    background-color: #e3f2fd;
+}
+
+#videoInput {
+    display: none;
+}
+
+.canvas-container {
+    position: relative;
+    display: none;
+    border-radius: 0px;
+    overflow: hidden;
+}
+
+#previewCanvas {
+    display: block;
+    max-width: 100%;
+    cursor: crosshair;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button:hover {
+    background-color: #1976D2;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.coordinates {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 4px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+}
+
+.instructions {
+    color: #666;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.point-counter {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    display: none;
+}
