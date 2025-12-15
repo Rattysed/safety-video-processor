@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выделение многоугольника на видео</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'requests/upload_video.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Выделение области на видео</h1>
+
+        <div class="upload-area" id="uploadArea">
+            <h3>Нажмите или перетащите MP4 видео сюда</h3>
+            <p>Поддерживаются только MP4 файлы</p>
+            <input type="file" id="videoInput" accept="video/mp4">
+        </div>
+        
+        <div class="canvas-container">
+            <div class="point-counter" id="pointCounter">Точек: 0</div>
+            <canvas id="previewCanvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button id="undoBtn" disabled>Отменить последнюю точку</button>
+            <button id="clearBtn" disabled>Очистить все точки</button>
+            <button id="finishBtn" disabled>Завершить многоугольник</button>
+            <button id="sendBtn" disabled>Отправить координаты</button>
+            <form id="upload-form" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.as_p }}
+            </form>
+        </div>
+        
+        <div class="instructions" id="instructions">
+            Инструкция: 1. Загрузите видео → 2. Кликайте на изображении для добавления точек → 3. Нажмите "Завершить многоугольник" → 4. Отправьте координаты
+        </div>
+        
+        <div class="coordinates" id="coordinatesDisplay"></div>
+    </div>
+
+    <script>
+        // Элементы DOM
+        const videoInput = document.getElementById('videoInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const canvasContainer = document.querySelector('.canvas-container');
+        const pointCounter = document.getElementById('pointCounter');
+        const coordinatesDisplay = document.getElementById('coordinatesDisplay');
+        const instructions = document.getElementById('instructions');
+        
+        // Кнопки
+        const undoBtn = document.getElementById('undoBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const finishBtn = document.getElementById('finishBtn');
+        const sendBtn = document.getElementById('sendBtn');
+
+        const borderColor = '#f32121'
+        
+        // Контекст canvas
+        const ctx = previewCanvas.getContext('2d');
+        
+        // Состояние приложения
+        let points = [];
+        let polygonClosed = false;
+        let videoFrameImage = null;
+        let canvasScale = 1;
+        let resultFile = null;
+        
+        // Обработчики drag & drop
+        uploadArea.addEventListener('click', () => videoInput.click());
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            uploadArea.classList.add('highlight');
+        }
+        
+        function unhighlight() {
+            uploadArea.classList.remove('highlight');
+        }
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                const file = files[0];
+                resultFile = files[0];
+                if (file.type === 'video/mp4') {
+                    processVideoFile(file);
+                } else {
+                    alert('Пожалуйста, загрузите MP4 файл');
+                }
+            }
+        }
+        
+        // Обработчик выбора файла
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            resultFile = file;
+            if (file && file.type === 'video/mp4') {
+                processVideoFile(file);
+            } else {
+                alert('Пожалуйста, выберите MP4 файл');
+            }
+        });
+        
+        // Обработка видеофайла
+        function processVideoFile(file) {
+            const video = document.createElement('video');
+            const url = URL.createObjectURL(file);
+            
+            video.src = url;
+            video.muted = true;
+            
+            video.addEventListener('loadeddata', () => {
+                // Устанавливаем время на первый кадр
+                video.currentTime = 0;
+            });
+            
+            video.addEventListener('seeked', () => {
+                const width = video.videoWidth;
+                const height = video.videoHeight;
+                
+                const maxWidth = 800;
+                const maxHeight = 600;
+                
+                let displayWidth = width;
+                let displayHeight = height;
+                
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    displayWidth = width * ratio;
+                    displayHeight = height * ratio;
+                }
+                
+                previewCanvas.width = displayWidth;
+                previewCanvas.height = displayHeight;
+                canvasScale = displayWidth / width;
+                
+                // Рисуем кадр
+                ctx.drawImage(video, 0, 0, displayWidth, displayHeight);
+                
+                // Сохраняем изображение для перерисовки
+                videoFrameImage = new Image();
+                videoFrameImage.src = previewCanvas.toDataURL();
+                
+                // Показываем canvas и скрываем область загрузки
+                canvasContainer.style.display = 'block';
+                uploadArea.style.display = 'none';
+                pointCounter.style.display = 'block';
+                coordinatesDisplay.style.display = 'block';
+                
+                // Обновляем инструкции
+                instructions.textContent = 'Кликайте на изображении, чтобы добавить точки многоугольника. Минимум 3 точки.';
+                
+                // Освобождаем URL
+                URL.revokeObjectURL(url);
+            });
+            
+            video.load();
+        }
+        
+        // Обработчик кликов на canvas
+        previewCanvas.addEventListener('click', (e) => {
+            if (polygonClosed) return;
+            
+            const rect = previewCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Добавляем точку
+            points.push({ x, y });
+            
+            // Обновляем UI
+            updateUI();
+            redrawCanvas();
+        });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        // Функция перерисовки canvas
+        function redrawCanvas() {
+            // Очищаем canvas
+            ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            
+            // Рисуем сохраненное изображение
+            if (videoFrameImage) {
+                ctx.drawImage(videoFrameImage, 0, 0);
+            }
+            
+            // Рисуем точки
+            points.forEach((point, index) => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = borderColor;
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Номер точки
+                ctx.fillStyle = 'white';
+                ctx.font = '14px Arial';
+                ctx.fillText(index + 1, point.x - 4, point.y + 5);
+            });
+            
+            // Рисуем линии между точками
+            if (points.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+                
+                // Если многоугольник замкнут, рисуем последнюю линию
+                if (polygonClosed && points.length > 2) {
+                    ctx.lineTo(points[0].x, points[0].y);
+                }
+                
+                ctx.strokeStyle = '#2196F3';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Если есть хотя бы 3 точки и многоугольник замкнут, заливаем его
+                if (polygonClosed && points.length > 2) {
+                    ctx.fillStyle = 'rgba(33, 150, 243, 0.3)';
+                    ctx.fill();
+                }
+            }
+        }
+        
+        function updateUI() {
+            pointCounter.textContent = `Точек: ${points.length}`;
+            
+            undoBtn.disabled = points.length === 0;
+            clearBtn.disabled = points.length === 0;
+            finishBtn.disabled = points.length < 3;
+            
+            // Если многоугольник замкнут, активируем кнопку отправки
+            if (polygonClosed) {
+                sendBtn.disabled = false;
+                instructions.textContent = 'Многоугольник завершен. Нажмите "Отправить координаты" для отправки данных.';
+            } else {
+                sendBtn.disabled = true;
+                instructions.textContent = points.length >= 3 
+                    ? 'Нажмите "Завершить многоугольник" или продолжайте добавлять точки' 
+                    : 'Кликайте на изображении, чтобы добавить точки многоугольника. Минимум 3 точки.';
+            }
+            
+            // Обновляем отображение координат
+            updateCoordinatesDisplay();
+        }
+        
+        // Отображение координат
+        function updateCoordinatesDisplay() {
+            if (points.length === 0) {
+                coordinatesDisplay.textContent = 'Координаты точек будут отображаться здесь';
+                return;
+            }
+            
+            let coordinatesText = `Координаты точек (относительно изображения):\n\n`;
+            coordinatesText += `Масштаб canvas: ${canvasScale.toFixed(4)}\n`;
+            coordinatesText += `Исходные координаты (относительно canvas ${previewCanvas.width}x${previewCanvas.height}):\n`;
+            
+            points.forEach((point, index) => {
+                // Координаты относительно canvas
+                const canvasX = point.x;
+                const canvasY = point.y;
+                
+                // Координаты относительно исходного видео (с учетом масштабирования)
+                const originalX = Math.round(point.x / canvasScale);
+                const originalY = Math.round(point.y / canvasScale);
+                
+                coordinatesText += `Точка ${index + 1}: canvas(${Math.round(canvasX)}, ${Math.round(canvasY)}) | исходные(${originalX}, ${originalY})\n`;
+            });
+            
+            coordinatesDisplay.textContent = coordinatesText;
+        }
+        
+        // Обработчики кнопок
+        undoBtn.addEventListener('click', () => {
+            if (points.length > 0) {
+                points.pop();
+                polygonClosed = false;
+                updateUI();
+                redrawCanvas();
+            }
+        });
+        
+        clearBtn.addEventListener('click', () => {
+            points = [];
+            polygonClosed = false;
+            updateUI();
+            redrawCanvas();
+        });
+        
+        finishBtn.addEventListener('click', () => {
+            if (points.length >= 3) {
+                polygonClosed = true;
+                updateUI();
+                redrawCanvas();
+            }
+        });
+        
+        sendBtn.addEventListener('click', () => {
+            if (points.length < 3) {
+                alert('Для отправки нужно минимум 3 точки');
+                return;
+            }
+            
+            // Подготавливаем данные для отправки
+            const pointsRes = points.map(point => [
+                    Math.round(point.x / canvasScale),
+                    Math.round(point.y / canvasScale)
+            ]);
+            const formData = new FormData();
+            formData.append('file', resultFile);
+            formData.append('points', JSON.stringify(pointsRes));
+
+            console.log('Данные для отправки на бэкенд:', formData);
+            
+            const response = fetch('/api/upload/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Ответ от сервера:', result);
+                window.location.href = `/request/${result.id}/`;
+            })
+            .catch(error => {
+                console.error('Ошибка при отправке:', error);
+                alert('Ошибка при отправке данных');
+            });
+            
+        });
+        
+        // Инициализация
+        updateUI();
+    </script>
+</body>
+</html>

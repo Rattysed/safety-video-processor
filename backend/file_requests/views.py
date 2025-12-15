@@ -27,7 +27,7 @@ def get_task_status(request_id):
 
 def index_view(request):
     form = FileFieldForm()
-    return render(request, 'upload_images.html', {'form': form})
+    return render(request, 'upload_video.html', {'form': form})
 
 
 def request_page_view(request, request_id):
@@ -58,8 +58,14 @@ class FileUploadAPIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
     
     def post(self, request, format=None):
-        files = request.FILES.getlist('files')
-        if not files:
+        print("get request")
+        files = request.FILES.getlist('file')
+        print(files)
+
+        points = request.data.get('points', [])
+        print(points)
+
+        if not files or not points:
             return Response({'error': 'No files provided'}, status=status.HTTP_400_BAD_REQUEST)
             
         req = Request.create_request()
