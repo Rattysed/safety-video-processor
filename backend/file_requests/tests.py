@@ -132,7 +132,7 @@ class WebViewTests(TestCase):
     def test_index_view(self):
         response = self.client.get(reverse("index"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "upload_images.html")
+        self.assertTemplateUsed(response, "upload_video.html")
         self.assertIsNotNone(response.context["form"])
 
     def test_request_page_view_valid(self):
