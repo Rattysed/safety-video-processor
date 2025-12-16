@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Выделение многоугольника на видео</title>
+    <title>Детектор опасности на переезде</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'requests/upload_video.css' %}">
 </head>
 <body>
     <div class="container">
-        <h1>Выделение области на видео</h1>
+        <h1>Загрузите видео и выделите опасную область</h1>
 
         <div class="upload-area" id="uploadArea">
             <h3>Нажмите или перетащите MP4 видео сюда</h3>
@@ -24,7 +24,6 @@
         
         <div class="controls">
             <button id="undoBtn" disabled>Отменить последнюю точку</button>
-            <button id="clearBtn" disabled>Очистить все точки</button>
             <button id="finishBtn" disabled>Завершить многоугольник</button>
             <button id="sendBtn" disabled>Отправить координаты</button>
             <form id="upload-form" enctype="multipart/form-data">
@@ -52,11 +51,12 @@
         
         // Кнопки
         const undoBtn = document.getElementById('undoBtn');
-        const clearBtn = document.getElementById('clearBtn');
         const finishBtn = document.getElementById('finishBtn');
         const sendBtn = document.getElementById('sendBtn');
 
+        const lineColor = '#f32121'
         const borderColor = '#f32121'
+        const fillColor = 'rgba(240, 33, 33, 0.3)'
         
         // Контекст canvas
         const ctx = previewCanvas.getContext('2d');
@@ -70,31 +70,6 @@
         
         // Обработчики drag & drop
         uploadArea.addEventListener('click', () => videoInput.click());
-        
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, highlight, false);
-        });
-        
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, unhighlight, false);
-        });
-        
-        function highlight() {
-            uploadArea.classList.add('highlight');
-        }
-        
-        function unhighlight() {
-            uploadArea.classList.remove('highlight');
-        }
         
         uploadArea.addEventListener('drop', handleDrop, false);
         
@@ -110,11 +85,14 @@
                 } else {
                     alert('Пожалуйста, загрузите MP4 файл');
                 }
+            } else {
+                console.log("no files")
             }
         }
         
         // Обработчик выбора файла
         videoInput.addEventListener('change', (e) => {
+            console.log(e.target.files)
             const file = e.target.files[0];
             resultFile = file;
             if (file && file.type === 'video/mp4') {
@@ -250,13 +228,13 @@
                     ctx.lineTo(points[0].x, points[0].y);
                 }
                 
-                ctx.strokeStyle = '#2196F3';
+                ctx.strokeStyle = lineColor;
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
                 // Если есть хотя бы 3 точки и многоугольник замкнут, заливаем его
                 if (polygonClosed && points.length > 2) {
-                    ctx.fillStyle = 'rgba(33, 150, 243, 0.3)';
+                    ctx.fillStyle = fillColor;
                     ctx.fill();
                 }
             }
@@ -266,7 +244,6 @@
             pointCounter.textContent = `Точек: ${points.length}`;
             
             undoBtn.disabled = points.length === 0;
-            clearBtn.disabled = points.length === 0;
             finishBtn.disabled = points.length < 3;
             
             // Если многоугольник замкнут, активируем кнопку отправки
@@ -319,14 +296,7 @@
                 redrawCanvas();
             }
         });
-        
-        clearBtn.addEventListener('click', () => {
-            points = [];
-            polygonClosed = false;
-            updateUI();
-            redrawCanvas();
-        });
-        
+
         finishBtn.addEventListener('click', () => {
             if (points.length >= 3) {
                 polygonClosed = true;
