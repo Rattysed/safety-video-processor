@@ -11,7 +11,12 @@
     <input type="hidden" id="request-id" value="{{ request_id }}">
     <div style="text-align: center; margin-top: 50px;">
         <h1 id="status-message">Ожидайте, задача выполняется...</h1>
-        <div id="result-container" style="margin-top: 20px;"></div>
+        <div id="result-container" style="margin-top: 20px;" class="hidden">
+            <video id="videoPlayer" width="640" height="360" controls>
+                Ваш браузер не поддерживает видео тег.
+            </video>
+            <p id="timings" class="container"> </p>
+        </div>
     </div>
 
     <script>
@@ -19,6 +24,8 @@
             const requestId = document.getElementById('request-id').value;
             const statusMessage = document.getElementById('status-message');
             const resultContainer = document.getElementById('result-container');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const timingsContainer = document.getElementById('timings');
 
             checkStatus();
 
@@ -34,19 +41,14 @@
                         if (data.status === 'ready') {
                             statusMessage.textContent = 'Обработка завершена!';
                             
-                            const downloadLink = document.createElement('a');
-                            downloadLink.href = data.link;
-                            downloadLink.textContent = 'Скачать результат';
-                            downloadLink.className = 'download-link';
-                            downloadLink.target = '_blank';
-                            
-                            resultContainer.innerHTML = '';
-                            resultContainer.appendChild(downloadLink);
+                            resultContainer.classList.remove("hidden")
+                            videoPlayer.src = data.link
+                            timingsContainer.innerText = data.timings
                         } else if (data.status === 'error') {
                             statusMessage.textContent = 'Произошла ошибка при обработке';
                             resultContainer.innerHTML = `<div class="error-message">${data.message || 'Неизвестная ошибка'}</div>`;
                         } else {
-                            setTimeout(checkStatus, 3000);
+                            setTimeout(checkStatus, 1000);
                         }
                     })
                     .catch(error => {

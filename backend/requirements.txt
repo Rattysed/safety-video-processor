@@ -9,3 +9,6 @@ boto3==1.26.59
 django-storages==1.14.4
 uuid==1.30
 django-celery-beat
+opencv-python==4.12.0.88
+opencv-python-headless==4.10.0.84
+numpy==2.2.6

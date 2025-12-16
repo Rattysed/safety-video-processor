@@ -23,6 +23,7 @@ class Request(models.Model):
     time_begin = models.DateTimeField(auto_now_add=True)
     time_end = models.DateTimeField(auto_now=True)
     url = models.CharField(max_length=250, blank=True, null=True)
+    danger_timings = models.CharField(max_length=500, blank=True, null=True)
     file = models.FileField(storage=RESULT_STORAGE)
     expiration_date = models.DateTimeField(null=True, blank=True)
 
@@ -57,7 +58,7 @@ class Request(models.Model):
             ClientMethod='get_object',
             Params={
                 'Bucket': bucket_name,
-                'Key': f"{ResultStorage.location}/{self.id}.zip",
+                'Key': f"{ResultStorage.location}/{self.file.name}",
             },
             ExpiresIn=expiration
         )
@@ -68,8 +69,15 @@ class Request(models.Model):
         self.save()
         return url
     
+    def get_timings(self):
+        return self.danger_timings
+    
     def update_file(self, name: str, data):
         self.file = ContentFile(data, name=name)
+        self.save()
+
+    def update_timings(self, new_timings: str):
+        self.danger_timings = new_timings
         self.save()
 
     def update_expiration_date(self):

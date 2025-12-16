@@ -71,6 +71,9 @@ class FileUploadAPIView(APIView):
         req = Request.create_request()
         file_ids = []
 
+        if len(files) > 1:
+            return Response({'error': 'Too many files'}, status=status.HTTP_400_BAD_REQUEST)
+        
         for file in files:
             if validate_file_extensions(ALLOWED_FILE_EXTENSIONS, file.name):
                 file_ids.append(UploadedFile.create_file(req, file.name, file).id)
@@ -79,9 +82,8 @@ class FileUploadAPIView(APIView):
                 
         if not file_ids:
             return Response({'error': 'No valid image files were uploaded'}, status=status.HTTP_400_BAD_REQUEST)
-                
-        tasks = group(task_process_video.s(file_id) for file_id in file_ids)
-        chord(tasks)(task_to_zip.s())
+        
+        task_process_video.delay(file_ids[0])
         
         serializer = RequestSerializer(req)
         response_data = serializer.data
@@ -101,9 +103,11 @@ class RequestStatusAPIView(APIView):
             
             if task.status == 'done':
                 url = task.get_resulting_link()
+                timings = task.get_timings()
                 response_data.update({
                     'status': 'ready',
-                    'link': f'{url}'
+                    'link': f'{url}',
+                    'timings': timings,
                 })
             else:
                 response_data.update({

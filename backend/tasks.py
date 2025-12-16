@@ -1,6 +1,7 @@
 from file_requests.models import Request, UploadedFile, EditedFile
 from time import sleep
 from file_requests.cutom_image_handler import ImageHandler
+from file_requests.frames_to_times import *
 
 import zipfile
 from io import BytesIO
@@ -17,6 +18,14 @@ def task_process_video(file_id):
         # edited_image = image_handler.edit(image.get_file_data())
 
         file = EditedFile.create_file(video.request, video.uploaded_name, video.get_file_data())
+
+        example_intervals = [(1, 40), (100, 120)]
+        fancy_intervals = frame_intervals_to_string(example_intervals, file)
+
+        file.request.update_file(str(file.request.id) + '.mp4', file.get_file_data())
+        file.request.update_timings(fancy_intervals)
+        file.request.update_status_done()
+        
     except Exception as e:
         print(e)
         return file_id, False
