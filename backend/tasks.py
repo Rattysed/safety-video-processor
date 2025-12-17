@@ -15,6 +15,8 @@ import numpy as np
 import cv2
 import tempfile
 
+from file_requests.geometry import Point, Polygon, Car
+
 WHEEL_MODEL_PATH = "../ml/models/wheels_yolov11.pt"
 
 print("типа начали загружаться модели................")
@@ -42,7 +44,7 @@ def detect_wheels(car_crop, frame, wheel_model, x1, x2, y1, y2):
             wheels_list.append([global_wx1, global_wy1, global_wx2, global_wy2])
 
             # Рисуем колеса (зеленым)
-            cv2.rectangle(frame, (global_wx1, global_wy1), (global_wx2, global_wy2), (0, 255, 0), 2)
+            # cv2.rectangle(frame, (global_wx1, global_wy1), (global_wx2, global_wy2), (0, 255, 0), 2)
     
     return wheels_list
 
@@ -92,24 +94,28 @@ def process_video_traffic(input_video_path, output_video_path):
                     continue
 
                 wheels_list = detect_wheels(car_crop, frame, wheel_model, x1, x2, y1, y2)
+                wheels_list_flatten = []
+                for x1, y1, x2, y2 in wheels_list:
+                    wheels_list_flatten.append(Point(x1, y1))
+                    wheels_list_flatten.append(Point(x2, y2))
 
-                car_info = {
-                    "tracking_id": int(track_id),
-                    "car_bbox": [x1, y1, x2, y2],
-                    "wheels_bboxes": wheels_list
-                }
+                if wheels_list_flatten:
+                    car_info = Car(wheels=Polygon(wheels_list_flatten), bounding_box=Polygon([Point(x1, y1), Point(x2, y2)]), id=int(track_id))
+                else:
+                    car_info = Car(wheels=None, bounding_box=Polygon([Point(x1, y1), Point(x2, y2)]), id=int(track_id))
+
                 frame_data.append(car_info)
                 
 
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                # cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                # cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
         print(f"Кадр {frame_count}: Обнаружено {len(frame_data)} машин.")
-        frames_data.append({"frame": frame_count, "data": frame_data})
-        out.write(frame)
+        frames_data.append(frame_data)
+        # out.write(frame)
 
     cap.release()
-    out.release()
+    # out.release()
     cv2.destroyAllWindows()
     return frames_data
 
@@ -129,22 +135,26 @@ def task_process_video(file_id):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as out_tfile:
             temp_output_path = out_tfile.name
 
-        print("путь для выходного видео: ", temp_output_path)
+        # print("путь для выходного видео: ", temp_output_path)
 
         frames_data = process_video_traffic(
             input_video_path=temp_input_path, 
             output_video_path=temp_output_path
         )
 
-        with open(temp_output_path, 'rb') as processed_f:
-            processed_video_bytes = processed_f.read()
+        print(frames_data[300:350])
+
+        # with open(temp_output_path, 'rb') as processed_f:
+        #     processed_video_bytes = processed_f.read()
+
+        # edited_image = image_handler.edit(image.get_file_data())
 
         # edited_image = image_handler.edit(image.get_file_data())
         print(video)
         print(type(video))
         print("типа обработалось видео")
 
-        file = EditedFile.create_file(video.request, video.uploaded_name, processed_video_bytes)
+        file = EditedFile.create_file(video.request, video.uploaded_name, video.get_file_data())
 
         example_intervals = [(1, 40), (100, 120)]
         fancy_intervals = frame_intervals_to_string(example_intervals, file)
