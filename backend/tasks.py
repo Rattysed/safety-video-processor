@@ -123,8 +123,11 @@ def process_video_traffic(input_video_path, output_video_path):
 
 
 @app.task
-def task_process_video(file_id):
+def task_process_video(file_id, points):
     try:
+        danger_zone = Polygon(Point(p[0], p[1]) for p in points)
+        print(danger_zone)
+
         video = UploadedFile.get_by_id(file_id)
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tfile:

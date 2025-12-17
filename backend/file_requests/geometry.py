@@ -44,12 +44,12 @@ class Polygon:
         return f"Polygon({self.points})"
     
     @classmethod
-    def from_rectangle(cls, bottom_left: Point, width: float, height: float) -> 'Polygon':
+    def from_rectangle(cls, top_left: Point, width: float, height: float) -> 'Polygon':
         """
         Создает прямоугольный полигон из левой нижней точки, ширины и высоты
         
         Args:
-            bottom_left: Левая нижняя точка
+            top_left: Левая верхняя точка
             width: Ширина прямоугольника
             height: Высота прямоугольника
         
@@ -57,10 +57,10 @@ class Polygon:
             Прямоугольный полигон (точки в порядке против часовой стрелки)
         """
         points = [
-            bottom_left,
-            Point(bottom_left.x + width, bottom_left.y),
-            Point(bottom_left.x + width, bottom_left.y + height),
-            Point(bottom_left.x, bottom_left.y + height)
+            top_left,
+            Point(top_left.x + width, top_left.y),
+            Point(top_left.x + width, top_left.y + height),
+            Point(top_left.x, top_left.y + height)
         ]
         return cls(points)
     

@@ -83,7 +83,7 @@ class FileUploadAPIView(APIView):
         if not file_ids:
             return Response({'error': 'No valid image files were uploaded'}, status=status.HTTP_400_BAD_REQUEST)
         
-        task_process_video.delay(file_ids[0])
+        task_process_video.delay(file_ids[0], points)
         
         serializer = RequestSerializer(req)
         response_data = serializer.data
