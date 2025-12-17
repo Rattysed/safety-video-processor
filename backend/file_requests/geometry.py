@@ -158,13 +158,13 @@ if __name__ == "__main__":
     print(f"Triangle intersects rect1: {triangle.intersects(rect1)}")
 
 class Car:
-    def __init__(self, wheels: Polygon, bounding_box: Polygon, id: int):
+    def __init__(self, wheels: List[Polygon], bounding_box: Polygon, id: int):
         self.wheels = wheels
         self.bounding_box = bounding_box
         self.id = id
 
     def get_danger_level(self, danger_zone: Polygon) -> int:
-        if danger_zone.intersects(self.wheels):
+        if self.wheels and any([danger_zone.intersects(wheel) for wheel in self.wheels]):
             return 2
         if danger_zone.intersects(self.bounding_box):
             return 1

@@ -96,14 +96,13 @@ def process_video_traffic(input_video_path, output_video_path):
 
                 wheels_list = detect_wheels(car_crop, frame, wheel_model, x1, x2, y1, y2)
                 wheels_list_flatten = []
-                for x1, y1, x2, y2 in wheels_list:
-                    wheels_list_flatten.append(Point(x1, y1))
-                    wheels_list_flatten.append(Point(x2, y2))
+                for xx1, yy1, xx2, yy2 in wheels_list:
+                    wheels_list_flatten.append(Polygon.from_rectangle(Point(xx1, yy1), abs(xx1 - xx2), abs(yy1 - yy2)))
 
                 if wheels_list_flatten:
-                    car_info = Car(wheels=Polygon(wheels_list_flatten), bounding_box=Polygon([Point(x1, y1), Point(x2, y2)]), id=int(track_id))
+                    car_info = Car(wheels=wheels_list_flatten, bounding_box=Polygon.from_rectangle(Point(x1, y1), abs(x1 - x2), abs(y1 - y2)), id=int(track_id))
                 else:
-                    car_info = Car(wheels=None, bounding_box=Polygon([Point(x1, y1), Point(x2, y2)]), id=int(track_id))
+                    car_info = Car(wheels=None, bounding_box=Polygon.from_rectangle(Point(x1, y1), abs(x1 - x2), abs(y1 - y2)), id=int(track_id))
 
                 frame_data.append(car_info)
                 
@@ -120,12 +119,48 @@ def process_video_traffic(input_video_path, output_video_path):
     cv2.destroyAllWindows()
     return frames_data
 
+def draw_rectangles(aligned_frames_data, input_video_path, output_video_path, danger_zone):
+    cap = cv2.VideoCapture(input_video_path)
+    if not cap.isOpened():
+        print("Ошибка открытия видео")
+        return
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = 0
+    danger_frames = []
+
+    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        for car in aligned_frames_data[frame_count]:
+            danger_level =  car.get_danger_level(danger_zone)
+            x1, y1, x2, y2 = car.bounding_box.points[0].x, car.bounding_box.points[0].y, car.bounding_box.points[2].x, car.bounding_box.points[2].y
+            if danger_level == 2:
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                print("redd", frame_count)
+                danger_frames.append(frame_count)
+            elif danger_level == 1:
+                print("yelow", frame_count)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
+            else:
+                print("green", frame_count)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        frame_count += 1
+        out.write(frame)
+
+    return danger_frames
 
 
 @app.task
 def task_process_video(file_id, points):
     try:
-        danger_zone = Polygon(Point(p[0], p[1]) for p in points)
+        danger_zone = Polygon(list(Point(p[0], p[1]) for p in points))
         print(danger_zone)
 
         video = UploadedFile.get_by_id(file_id)
@@ -150,8 +185,10 @@ def task_process_video(file_id, points):
 
         aligned_frames_data = restore_missing_cars_with_interpolation(frames_data)
         print(aligned_frames_data[0:50])
-        # with open(temp_output_path, 'rb') as processed_f:
-        #     processed_video_bytes = processed_f.read()
+
+        danger_frames = draw_rectangles(frames_data, temp_input_path, temp_output_path, danger_zone)
+        with open(temp_output_path, 'rb') as processed_f:
+            processed_video_bytes = processed_f.read()
 
         # edited_image = image_handler.edit(image.get_file_data())
 
@@ -160,7 +197,7 @@ def task_process_video(file_id, points):
         print(type(video))
         print("типа обработалось видео")
 
-        file = EditedFile.create_file(video.request, video.uploaded_name, video.get_file_data())
+        file = EditedFile.create_file(video.request, video.uploaded_name, processed_video_bytes)
 
         example_intervals = [(1, 40), (100, 120)]
         fancy_intervals = frame_intervals_to_string(example_intervals, file)

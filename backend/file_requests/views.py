@@ -20,6 +20,8 @@ from rest_framework import status
 
 from .serializers import RequestSerializer
 
+import json
+
 
 def get_task_status(request_id):
     return Request.is_request_done(request_id)
@@ -63,6 +65,7 @@ class FileUploadAPIView(APIView):
         print(files)
 
         points = request.data.get('points', [])
+        points = json.loads(points)
         print(points)
 
         if not files or not points:
