@@ -35,6 +35,16 @@ cp .env.example .env
 docker-compose up --build -d
 ```
 
+### PROD запуск
+
+```bash
+# Создание файла конфигурации
+cp .env.example .env
+cp Dockerfile.cuda worker/Dockerfile
+cp Dockerfile.cuda backend/Dockerfile
+```
+
+
 #### Полезные команды
 
 ```bash

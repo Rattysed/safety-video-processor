@@ -2,6 +2,7 @@ from file_requests.models import Request, UploadedFile, EditedFile
 from time import sleep
 from file_requests.cutom_image_handler import ImageHandler
 from file_requests.frames_to_times import *
+from file_requests.align import restore_missing_cars_with_interpolation
 
 import zipfile
 from io import BytesIO
@@ -142,8 +143,10 @@ def task_process_video(file_id):
             output_video_path=temp_output_path
         )
 
-        print(frames_data[300:350])
+        print(frames_data[0:50])
 
+        aligned_frames_data = restore_missing_cars_with_interpolation(frames_data)
+        print(aligned_frames_data[0:50])
         # with open(temp_output_path, 'rb') as processed_f:
         #     processed_video_bytes = processed_f.read()
 
