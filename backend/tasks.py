@@ -141,6 +141,10 @@ def draw_rectangles(aligned_frames_data, input_video_path, output_video_path, da
         for car in aligned_frames_data[frame_count]:
             danger_level =  car.get_danger_level(danger_zone)
             x1, y1, x2, y2 = car.bounding_box.points[0].x, car.bounding_box.points[0].y, car.bounding_box.points[2].x, car.bounding_box.points[2].y
+            if car.wheels:
+                for wheel in car.wheels:
+                    xx1, yy1, xx2, yy2 = wheel.points[0].x, wheel.points[0].y, wheel.points[2].x, wheel.points[2].y
+                    cv2.rectangle(frame, (xx1, yy1), (xx2, yy2), (255, 0, 0), 2)
             if danger_level == 2:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 print("redd", frame_count)
